@@ -20,12 +20,9 @@ Only tested under Ubuntu 22.04 with ROS2 Humble
 
 #### Building
 
-To build from source, clone the latest version from iRM Visoin 2024 repo and compile the package.
+Install dependencies and compile the package.
 
 ```shell
-git clone https://github.com/illini-robomaster/iRM_Vision_2024.git
-git submodule init
-git submodule update
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install --packages-up-to mindvision_camera
 ```
