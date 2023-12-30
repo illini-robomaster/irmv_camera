@@ -37,7 +37,7 @@ class MVCameraNode : public rclcpp::Node {
         : Node("mv_camera", options) {
         RCLCPP_INFO(this->get_logger(), "Starting MVCameraNode!");
 
-        CameraSdkInit(1);
+        CameraSdkInit(0);
 
         int i_camera_counts = 1;
         int i_status = -1;
