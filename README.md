@@ -20,13 +20,12 @@ Only tested under Ubuntu 22.04 with ROS2 Humble
 
 #### Building
 
-To build from source, clone the latest version from this repository into your colcon workspace and compile the package using
+To build from source, clone the latest version from iRM Visoin 2024 repo and compile the package.
 
 ```shell
-mkdir -p ros_ws/src
-cd ros_ws/src
-git clone https://github.com/illini-robomaster/irmv_camera.git
-cd ..
+git clone https://github.com/illini-robomaster/iRM_Vision_2024.git
+git submodule init
+git submodule update
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install --packages-up-to mindvision_camera
 ```
@@ -38,7 +37,7 @@ colcon build --symlink-install --packages-up-to mindvision_camera
 - [Calibration Tutorial](https://navigation.ros.org/tutorials/docs/camera_calibration.html)
 - [Parameters Reference](http://wiki.ros.org/camera_calibration)
 
-After calibration, the parameters will be stored in `/tmp/calibrationdata.tar.gz`
+After calibration, the parameters will be stored in `/tmp/calibrationdata.tar.gz`.
 
 ### Launch Camera Node
 
@@ -54,10 +53,10 @@ Parameters supported：
 
 ### Dynamically turn camera parameters through RQt
 
-Open RQt
+Open RQt.
 
 ```shell
 rqt
 ```
 
-Add `Configuration -> Dynamic Reconfigure` and `Visualization -> Image View` in Plugins
+Add `Configuration -> Dynamic Reconfigure` and `Visualization -> Image View` in Plugins.
