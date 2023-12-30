@@ -1,4 +1,4 @@
-# ros2_mindvision_camera
+# irmv_camera
 
 > Fork from [ros2-mindvision-camera](https://gitlab.com/rm_vision/ros2-mindvision-camera)
 
