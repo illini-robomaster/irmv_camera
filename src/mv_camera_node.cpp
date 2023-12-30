@@ -1,19 +1,12 @@
-// Copyright (c) 2022 ChenJun
-// Licensed under the MIT License.
-
-// MindVision Camera SDK
 #include <CameraApi.h>
 
-// ROS
 #include <camera_info_manager/camera_info_manager.hpp>
 #include <image_transport/image_transport.hpp>
+#include <memory>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
-
-// C++ system
-#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
@@ -24,7 +17,7 @@ std::mutex m;
 std::condition_variable trigger;
 
 uint8_t *pby_buffer_;
-tSdkFrameHead s_frame_info_;  // 图像帧头信息
+tSdkFrameHead s_frame_info_;
 
 auto last_time = std::chrono::high_resolution_clock::now();
 auto print_last_time = std::chrono::high_resolution_clock::now();
@@ -46,7 +39,6 @@ class MVCameraNode : public rclcpp::Node {
 
         CameraSdkInit(1);
 
-        // 枚举设备，并建立设备列表
         int i_camera_counts = 1;
         int i_status = -1;
         tSdkCameraDevInfo t_camera_enum_list;
@@ -55,16 +47,13 @@ class MVCameraNode : public rclcpp::Node {
         RCLCPP_INFO(this->get_logger(), "Found camera count = %d",
                     i_camera_counts);
 
-        // 没有连接设备
         if (i_camera_counts == 0) {
             RCLCPP_ERROR(this->get_logger(), "No camera found!");
             return;
         }
 
-        // 相机初始化。初始化成功后，才能调用任何其他相机相关的操作接口
         i_status = CameraInit(&t_camera_enum_list, -1, -1, &h_camera_);
 
-        // 初始化失败
         RCLCPP_INFO(this->get_logger(), "Init state = %d", i_status);
         if (i_status != CAMERA_STATUS_SUCCESS) {
             RCLCPP_ERROR(this->get_logger(), "Init failed!");
@@ -72,25 +61,12 @@ class MVCameraNode : public rclcpp::Node {
         }
 
         CameraSetTriggerMode(h_camera_, 2);
-
-        // 获得相机的特性描述结构体。该结构体中包含了相机可设置的各种参数的范围信息。决定了相关函数的参数
         CameraGetCapability(h_camera_, &t_capability_);
-
-        // 直接使用vector的内存作为相机输出buffer
         image_msg_.data.reserve(t_capability_.sResolutionRange.iHeightMax *
                                 t_capability_.sResolutionRange.iWidthMax * 3);
-
-        // 设置手动曝光
         CameraSetAeState(h_camera_, false);
-
-        // Declare camera parameters
         declareParameters();
-
-        // 让SDK进入工作模式，开始接收来自相机发送的图像
-        // 数据。如果当前相机是触发模式，则需要接收到
-        // 触发帧以后才会更新图像。
         CameraPlay(h_camera_);
-
         CameraSetIspOutFormat(h_camera_, CAMERA_MEDIA_TYPE_RGB8);
 
         // Create camera publisher
@@ -140,9 +116,13 @@ class MVCameraNode : public rclcpp::Node {
                 trigger.wait(lock);
 
                 auto current_time = std::chrono::high_resolution_clock::now();
-                fps = 1.0 / std::chrono::duration<double>(current_time - last_time).count();
+                fps = 1.0 /
+                      std::chrono::duration<double>(current_time - last_time)
+                          .count();
                 last_time = current_time;
-                if (std::chrono::duration<double>(current_time - print_last_time).count() > 0.3) {
+                if (std::chrono::duration<double>(current_time -
+                                                  print_last_time)
+                        .count() > 0.3) {
                     RCLCPP_INFO(this->get_logger(), "Hz: %6.2f", fps);
                     print_last_time = current_time;
                 }
@@ -161,7 +141,6 @@ class MVCameraNode : public rclcpp::Node {
                                        s_frame_info_.iHeight * 3);
 
                 camera_pub_.publish(image_msg_, camera_info_msg_);
-                CameraReleaseImageBuffer(h_camera_, pby_buffer_);
             }
         }};
     }
@@ -180,7 +159,6 @@ class MVCameraNode : public rclcpp::Node {
 
         // Exposure time
         param_desc.description = "Exposure time in microseconds";
-        // 对于CMOS传感器，其曝光的单位是按照行来计算的
         double exposure_line_time;
         CameraGetExposureLineTime(h_camera_, &exposure_line_time);
         param_desc.integer_range[0].from_value =
@@ -330,24 +308,16 @@ class MVCameraNode : public rclcpp::Node {
     }
 
     int h_camera_;
-    tSdkCameraCapbility t_capability_;  // 设备描述信息
-
+    tSdkCameraCapbility t_capability_;
     sensor_msgs::msg::Image image_msg_;
-
     image_transport::CameraPublisher camera_pub_;
-
-    // RGB Gain
-    int r_gain_, g_gain_, b_gain_;
-
+    int r_gain_, g_gain_, b_gain_;  // RGB Gain
     bool flip_image_;
-
     std::string camera_name_;
     std::unique_ptr<camera_info_manager::CameraInfoManager>
         camera_info_manager_;
     sensor_msgs::msg::CameraInfo camera_info_msg_;
-
     std::thread capture_thread_;
-
     OnSetParametersCallbackHandle::SharedPtr params_callback_handle_;
 };
 
