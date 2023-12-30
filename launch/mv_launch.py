@@ -19,7 +19,7 @@ def generate_launch_description():
         DeclareLaunchArgument(name='camera_info_url',
                               default_value=camera_info_url),
         DeclareLaunchArgument(name='use_sensor_data_qos',
-                              default_value='false'),
+                              default_value='true'),
         Node(
             package='mindvision_camera',
             executable='mindvision_camera_node',

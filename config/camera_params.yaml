@@ -3,4 +3,4 @@
     camera_name: mv_camera
 
     exposure_time: 6000
-    analog_gain: 32
+    analog_gain: 64
