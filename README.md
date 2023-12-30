@@ -25,7 +25,7 @@ To build from source, clone the latest version from this repository into your co
 ```shell
 mkdir -p ros_ws/src
 cd ros_ws/src
-git clone https://github.com/chenjunnn/ros2_mindvision_camera.git
+git clone https://github.com/illini-robomaster/irmv_camera.git
 cd ..
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install --packages-up-to mindvision_camera
