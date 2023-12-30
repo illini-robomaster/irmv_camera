@@ -4,6 +4,8 @@
 
 ROS2 MindVision Camera Package providing ROS API
 
+![iRM](docs/iRM.png)
+
 Only tested under Ubuntu 22.04 with ROS2 Humble
 
 ![Build Status](https://github.com/illini-robomaster/irmv_camera/actions/workflows/ros_ci.yml/badge.svg)
