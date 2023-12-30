@@ -3,4 +3,4 @@
     camera_name: mv_camera
 
     exposure_time: 6000
-    analog_gain: 64
+    analog_gain: 64 # TODO originally analog_gain = 32, this parameter needs to be tuned
