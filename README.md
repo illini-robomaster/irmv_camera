@@ -61,5 +61,3 @@ rqt
 ```
 
 Add `Configuration -> Dynamic Reconfigure` and `Visualization -> Image View` in Plugins
-
-![](docs/rqt.png)
