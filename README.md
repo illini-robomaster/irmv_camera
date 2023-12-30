@@ -16,7 +16,7 @@ Only tested under Ubuntu 22.04 with ROS2 Humble
 
 #### Dependencies
 
-- [Robot Operating System 2 (ROS2)](https://docs.ros.org/en/humble/) (middleware for robotics),
+- [ROS2](https://docs.ros.org/en/humble/)
 
 #### Building
 
