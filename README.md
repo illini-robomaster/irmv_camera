@@ -1,6 +1,8 @@
 # ros2_mindvision_camera
 
-ROS2 MindVision Camera Package providing ROS API。
+> Fork from [ros2-mindvision-camera](https://gitlab.com/rm_vision/ros2-mindvision-camera)
+
+ROS2 MindVision Camera Package providing ROS API
 
 Only tested under Ubuntu 22.04 with ROS2 Humble
 
