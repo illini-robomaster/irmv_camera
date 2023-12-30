@@ -64,9 +64,9 @@ if(BUILD_TESTING)
   ament_cpplint(EXCLUDE ${_linter_excludes})
 endif()
 
-# ############
-# # Install ##
-# ############
+#############
+## Install ##
+#############
 
 ament_auto_package(
   INSTALL_TO_SHARE
