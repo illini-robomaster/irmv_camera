@@ -1,36 +1,45 @@
+// MindVision camera SDK
 #include <CameraApi.h>
 
+// ROS
 #include <camera_info_manager/camera_info_manager.hpp>
 #include <image_transport/image_transport.hpp>
-#include <memory>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
+
+// C++ standard library
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
 
 namespace mindvision_camera {
 
+// thread synchronization variables
 std::mutex m;
 std::condition_variable trigger;
 
+// global variables for image processing
 uint8_t *pby_buffer_;
 tSdkFrameHead s_frame_info_;
 
+// FPS calculation init
 auto last_time = std::chrono::high_resolution_clock::now();
 auto print_last_time = std::chrono::high_resolution_clock::now();
 float fps = 0;
 
-void imageProcess(CameraHandle hCamera, BYTE *pFrameBuffer,
-                  tSdkFrameHead *pFrameHead, PVOID pContext) {
+// callback function for image processing
+void getImage(CameraHandle hCamera, BYTE *pFrameBuffer,
+              tSdkFrameHead *pFrameHead, PVOID pContext) {
     std::unique_lock<std::mutex> lock(m);
     pby_buffer_ = pFrameBuffer;
     s_frame_info_ = *pFrameHead;
     trigger.notify_one();
 }
 
+// camera node
 class MVCameraNode : public rclcpp::Node {
    public:
     explicit MVCameraNode(const rclcpp::NodeOptions &options)
@@ -60,7 +69,9 @@ class MVCameraNode : public rclcpp::Node {
             return;
         }
 
+        // set trigger mode to be hardware trigger
         CameraSetTriggerMode(h_camera_, 2);
+
         CameraGetCapability(h_camera_, &t_capability_);
         image_msg_.data.reserve(t_capability_.sResolutionRange.iHeightMax *
                                 t_capability_.sResolutionRange.iWidthMax * 3);
@@ -69,17 +80,18 @@ class MVCameraNode : public rclcpp::Node {
         CameraPlay(h_camera_);
         CameraSetIspOutFormat(h_camera_, CAMERA_MEDIA_TYPE_RGB8);
 
-        // Create camera publisher
+        // create camera publisher
         // rqt_image_view can't subscribe image msg with sensor_data QoS
         // https://github.com/ros-visualization/rqt/issues/187
         bool use_sensor_data_qos =
             this->declare_parameter("use_sensor_data_qos", false);
         auto qos = use_sensor_data_qos ? rmw_qos_profile_sensor_data
                                        : rmw_qos_profile_default;
+        // publisher
         camera_pub_ =
             image_transport::create_camera_publisher(this, "image_raw", qos);
 
-        // Load camera info
+        // load camera info
         camera_name_ = this->declare_parameter("camera_name", "mv_camera");
         camera_info_manager_ =
             std::make_unique<camera_info_manager::CameraInfoManager>(
@@ -94,17 +106,20 @@ class MVCameraNode : public rclcpp::Node {
             RCLCPP_WARN(this->get_logger(), "Invalid camera info URL: %s",
                         camera_info_url.c_str());
 
-        // Add callback to the set parameter event
+        // add callback to the set parameter event
         params_callback_handle_ = this->add_on_set_parameters_callback(
             std::bind(&MVCameraNode::parametersCallback, this,
                       std::placeholders::_1));
 
+        // verify trigger mode
         int trigger_mode_;
         CameraGetTriggerMode(h_camera_, &trigger_mode_);
         RCLCPP_INFO(this->get_logger(), "Trigger mode = %d", trigger_mode_);
 
-        CameraSetCallbackFunction(h_camera_, &imageProcess, nullptr, nullptr);
+        // register callback function
+        CameraSetCallbackFunction(h_camera_, &getImage, nullptr, nullptr);
 
+        // define and start capture thread
         capture_thread_ = std::thread{[this]() -> void {
             RCLCPP_INFO(this->get_logger(), "Publishing image!");
 
@@ -113,8 +128,10 @@ class MVCameraNode : public rclcpp::Node {
 
             std::unique_lock<std::mutex> lock(m);
             while (rclcpp::ok()) {
+                // wait for hardware trigger
                 trigger.wait(lock);
 
+                // calculate FPS
                 auto current_time = std::chrono::high_resolution_clock::now();
                 fps = 1.0 /
                       std::chrono::duration<double>(current_time - last_time)
@@ -127,6 +144,7 @@ class MVCameraNode : public rclcpp::Node {
                     print_last_time = current_time;
                 }
 
+                // process image
                 CameraImageProcess(h_camera_, pby_buffer_,
                                    image_msg_.data.data(), &s_frame_info_);
                 if (flip_image_)
@@ -140,6 +158,7 @@ class MVCameraNode : public rclcpp::Node {
                 image_msg_.data.resize(s_frame_info_.iWidth *
                                        s_frame_info_.iHeight * 3);
 
+                // publish image
                 camera_pub_.publish(image_msg_, camera_info_msg_);
             }
         }};
@@ -152,12 +171,13 @@ class MVCameraNode : public rclcpp::Node {
     }
 
    private:
+    // declare parameters
     void declareParameters() {
         rcl_interfaces::msg::ParameterDescriptor param_desc;
         param_desc.integer_range.resize(1);
         param_desc.integer_range[0].step = 1;
 
-        // Exposure time
+        // exposure time
         param_desc.description = "Exposure time in microseconds";
         double exposure_line_time;
         CameraGetExposureLineTime(h_camera_, &exposure_line_time);
@@ -170,7 +190,7 @@ class MVCameraNode : public rclcpp::Node {
         CameraSetExposureTime(h_camera_, exposure_time);
         RCLCPP_INFO(this->get_logger(), "Exposure time = %f", exposure_time);
 
-        // Analog gain
+        // analog gain
         param_desc.description = "Analog gain";
         param_desc.integer_range[0].from_value =
             t_capability_.sExposeDesc.uiAnalogGainMin;
@@ -183,34 +203,34 @@ class MVCameraNode : public rclcpp::Node {
         CameraSetAnalogGain(h_camera_, analog_gain);
         RCLCPP_INFO(this->get_logger(), "Analog gain = %d", analog_gain);
 
-        // RGB Gain
-        // Get default value
+        // RGB gain
+        // get default value
         CameraGetGain(h_camera_, &r_gain_, &g_gain_, &b_gain_);
-        // R Gain
+        // R gain
         param_desc.integer_range[0].from_value =
             t_capability_.sRgbGainRange.iRGainMin;
         param_desc.integer_range[0].to_value =
             t_capability_.sRgbGainRange.iRGainMax;
         r_gain_ = this->declare_parameter("rgb_gain.r", r_gain_, param_desc);
-        // G Gain
+        // G gain
         param_desc.integer_range[0].from_value =
             t_capability_.sRgbGainRange.iGGainMin;
         param_desc.integer_range[0].to_value =
             t_capability_.sRgbGainRange.iGGainMax;
         g_gain_ = this->declare_parameter("rgb_gain.g", g_gain_, param_desc);
-        // B Gain
+        // B gain
         param_desc.integer_range[0].from_value =
             t_capability_.sRgbGainRange.iBGainMin;
         param_desc.integer_range[0].to_value =
             t_capability_.sRgbGainRange.iBGainMax;
         b_gain_ = this->declare_parameter("rgb_gain.b", b_gain_, param_desc);
-        // Set gain
+        // set gain
         CameraSetGain(h_camera_, r_gain_, g_gain_, b_gain_);
         RCLCPP_INFO(this->get_logger(), "RGB Gain: R = %d", r_gain_);
         RCLCPP_INFO(this->get_logger(), "RGB Gain: G = %d", g_gain_);
         RCLCPP_INFO(this->get_logger(), "RGB Gain: B = %d", b_gain_);
 
-        // Saturation
+        // saturation
         param_desc.description = "Saturation";
         param_desc.integer_range[0].from_value =
             t_capability_.sSaturationRange.iMin;
@@ -223,7 +243,7 @@ class MVCameraNode : public rclcpp::Node {
         CameraSetSaturation(h_camera_, saturation);
         RCLCPP_INFO(this->get_logger(), "Saturation = %d", saturation);
 
-        // Gamma
+        // gamma
         param_desc.integer_range[0].from_value = t_capability_.sGammaRange.iMin;
         param_desc.integer_range[0].to_value = t_capability_.sGammaRange.iMax;
         int gamma;
@@ -232,10 +252,11 @@ class MVCameraNode : public rclcpp::Node {
         CameraSetGamma(h_camera_, gamma);
         RCLCPP_INFO(this->get_logger(), "Gamma = %d", gamma);
 
-        // Flip
+        // flip
         flip_image_ = this->declare_parameter("flip_image", false);
     }
 
+    // callback function for set parameter event
     rcl_interfaces::msg::SetParametersResult parametersCallback(
         const std::vector<rclcpp::Parameter> &parameters) {
         rcl_interfaces::msg::SetParametersResult result;
@@ -311,7 +332,7 @@ class MVCameraNode : public rclcpp::Node {
     tSdkCameraCapbility t_capability_;
     sensor_msgs::msg::Image image_msg_;
     image_transport::CameraPublisher camera_pub_;
-    int r_gain_, g_gain_, b_gain_;  // RGB Gain
+    int r_gain_, g_gain_, b_gain_;  // RGB gain
     bool flip_image_;
     std::string camera_name_;
     std::unique_ptr<camera_info_manager::CameraInfoManager>
@@ -325,7 +346,7 @@ class MVCameraNode : public rclcpp::Node {
 
 #include "rclcpp_components/register_node_macro.hpp"
 
-// Register the component with class_loader.
-// This acts as a sort of entry point, allowing the component to be discoverable
-// when its library is being loaded into a running process.
+// register the component with class_loader
+// this acts as a sort of entry point, allowing the component to be discoverable
+// when its library is being loaded into a running process
 RCLCPP_COMPONENTS_REGISTER_NODE(mindvision_camera::MVCameraNode)
