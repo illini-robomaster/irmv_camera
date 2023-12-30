@@ -48,7 +48,7 @@ Parameters supported：
 
 1. params_file： path for the camera parameters file 
 2. camera_info_url： path for the camera intrinsics file
-3. use_sensor_data_qos： whether camera Publisher uses SensorDataQoS (default: `false`)
+3. use_sensor_data_qos： whether camera Publisher uses SensorDataQoS (default: `true`)
 
 ### Dynamically turn camera parameters through RQt
 
